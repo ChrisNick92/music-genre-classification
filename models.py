@@ -27,11 +27,23 @@ class MLP(nn.Module):
 
 class CNN(nn.Module):
 
-    def __init__(self, H, W, pooling=False):
+    def __init__(self, H=21, W=128, pooling=False, activation=None, batchnorm=False, dropout_rate=None):
         super(CNN, self).__init__()
         self.H = H
         self.W = W
         self.pooling = pooling
+        self.activation_flag = True if activation else False
+        self.batchnorm = batchnorm
+        self.dropout_rate = dropout_rate
+        if self.dropout_rate:
+            self.dropout = nn.Dropout(p=self.dropout_rate)
+
+        if activation == 'ReLU':
+            self.activation = nn.ReLU()
+        elif activation == 'ELU':
+            self.activation = nn.ELU()
+        elif activation == 'Tanh':
+            self.activation = nn.Tanh()
 
         self._build_convolutional_layers()
         self._build_classifier()
@@ -43,6 +55,10 @@ class CNN(nn.Module):
             convs.append(nn.Conv2d(in_channels=in_channels, out_channels=self.channels[i + 1], kernel_size=5))
             self.H = int(np.floor(self.H - 4))
             self.W = int(np.floor(self.W - 4))
+            if self.batchnorm:
+                convs.append(nn.BatchNorm2d(num_features=self.channels[i + 1]))
+            if self.activation_flag:
+                convs.append(self.activation)
         if self.pooling:
             convs.append(nn.MaxPool2d(kernel_size=2, padding=1))
             self.H = int(np.floor(self.H / 2 + 1))
@@ -53,7 +69,11 @@ class CNN(nn.Module):
         self.layer_dims = [self.H * self.W * self.channels[-1], 1024, 256, 32, 4]
         linears = []
         for i, dims in enumerate(self.layer_dims[:-1]):
+            if self.dropout_rate:
+                linears.append(self.dropout)
             linears.append(nn.Linear(in_features=dims, out_features=self.layer_dims[i + 1]))
+            if self.activation_flag:
+                linears.append(self.activation)
         self.classifier = nn.Sequential(*linears)
 
     def forward(self, x):
