@@ -62,7 +62,8 @@ def training_loop(epochs, model, train_dloader, val_dloader, optim, loss_fn, dev
     start = time.perf_counter()
 
     train_loss_list, val_loss_list = [], []
-
+    best_f1 = -np.inf
+    
     for epoch in range(1, epochs + 1):
 
         model.train()
@@ -83,26 +84,25 @@ def training_loop(epochs, model, train_dloader, val_dloader, optim, loss_fn, dev
 
         model.eval()
         y_true, y_pred = [], []
-        best_f1 = -np.inf
         with torch.no_grad():
             p_bar = tqdm(val_dloader, unit='batch', leave=False, desc='Validation set')
             for X, y in p_bar:
                 X, y = X.to(device), y.to(device)
                 out = model(X)
                 loss = loss_fn(out, y)
-                preds = torch.argmax(out.detach().cpu(), dim=1)
-                y_true += y.detach().cpu().tolist()
-                y_pred += preds.tolist()
                 val_loss += loss.item()
+                preds = torch.argmax(out, dim=1)
+                y_true += y.tolist()
+                y_pred += preds.tolist()
             val_loss /= len(val_dloader)
             val_loss_list.append(val_loss)
 
-            # Check for Best F1 score
-            f1 = f1_score(y_true, y_pred, average='macro')
-            if keep_best and f1 >= best_f1:
-                best_epoch = epoch
-                torch.save(model.state_dict(), "model.pt")
-                best_f1 = f1
+        # Check for Best F1 score
+        f1 = f1_score(y_true, y_pred, average='macro')
+        if keep_best and f1 >= best_f1:
+            best_epoch = epoch
+            torch.save(model.state_dict(), "model.pt")
+            best_f1 = f1
 
         print(f"Epoch {epoch:<{_padding}}/{epochs}. Train Loss: {train_loss:.3f}. Val Loss: {val_loss:.3f}")
         train_loss, val_loss = 0., 0.
@@ -222,8 +222,8 @@ def train_and_validate(
             
     if plot:
         fig, ax = plt.subplots(figsize=(8, 6))
-        ax.plot(range(1, epochs + 1), train_loss_list, label='Train Loss')
-        ax.plot(range(1, epochs + 1), val_loss_list, label='Val Loss')
+        ax.plot(range(1, len(train_loss_list) + 1), train_loss_list, label='Train Loss')
+        ax.plot(range(1, len(val_loss_list) + 1), val_loss_list, label='Val Loss')
         ax.set_xlabel('Epoch')
         ax.set_ylabel('Loss')
         plt.legend()

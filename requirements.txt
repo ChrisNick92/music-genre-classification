@@ -4,3 +4,4 @@ ipykernel==6.23.1
 matplotlib==3.7.1
 tqdm==4.65.0
 scikit-learn==1.2.2
+librosa==0.10.0

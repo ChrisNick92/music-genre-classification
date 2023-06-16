@@ -44,6 +44,8 @@ class CNN(nn.Module):
             self.activation = nn.ELU()
         elif activation == 'Tanh':
             self.activation = nn.Tanh()
+        elif activation == 'GeLU':
+            self.activation = nn.GELU()
 
         self._build_convolutional_layers()
         self._build_classifier()
@@ -52,17 +54,22 @@ class CNN(nn.Module):
         self.channels = [1, 16, 32, 64, 128]
         convs = []
         for i, in_channels in enumerate(self.channels[:-1]):
-            convs.append(nn.Conv2d(in_channels=in_channels, out_channels=self.channels[i + 1], kernel_size=5))
-            self.H = int(np.floor(self.H - 4))
-            self.W = int(np.floor(self.W - 4))
+            if self.pooling:
+                convs.append(
+                    nn.Conv2d(in_channels=in_channels, out_channels=self.channels[i + 1], kernel_size=5, padding=2)
+                )
+            else:
+                convs.append(nn.Conv2d(in_channels=in_channels, out_channels=self.channels[i + 1], kernel_size=5))
+                self.H = int(np.floor(self.H - 4))
+                self.W = int(np.floor(self.W - 4))
             if self.batchnorm:
                 convs.append(nn.BatchNorm2d(num_features=self.channels[i + 1]))
             if self.activation_flag:
                 convs.append(self.activation)
-        if self.pooling:
-            convs.append(nn.MaxPool2d(kernel_size=2, padding=1))
-            self.H = int(np.floor(self.H / 2 + 1))
-            self.W = int(np.floor(self.W / 2 + 1))
+            if self.pooling:
+                convs.append(nn.MaxPool2d(kernel_size=2, padding=1))
+                self.H = int(np.floor(self.H / 2 + 1))
+                self.W = int(np.floor(self.W / 2 + 1))
         self.convolutional_layers = nn.Sequential(*convs)
 
     def _build_classifier(self):
@@ -72,7 +79,7 @@ class CNN(nn.Module):
             if self.dropout_rate:
                 linears.append(self.dropout)
             linears.append(nn.Linear(in_features=dims, out_features=self.layer_dims[i + 1]))
-            if self.activation_flag:
+            if self.activation_flag and (i + 1) < len(self.layer_dims[:-1]):
                 linears.append(self.activation)
         self.classifier = nn.Sequential(*linears)
 
